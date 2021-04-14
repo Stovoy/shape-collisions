@@ -358,6 +358,7 @@ function lineCollision(l1, l2) {
     if (o1 !== o2 && o3 !== o4) {
         return true;
     }
+
     // l1.p1, l1.p2, l2.p1 are colinear and l2.p1 lies on l1.
     if (o1 === 0 && onSegment(l1.p1, l2.p1, l1.p2)) {
         return true;
@@ -424,7 +425,6 @@ function draw() {
     ctx.fillRect(0, 0, width, height);
     const quadtree = new QuadTree(0, 0, width, height);
     for (let shape of shapes) {
-        shape.recalcBoundingBox();
         quadtree.insert(shape);
     }
 
@@ -469,14 +469,16 @@ function move() {
             shape.y = 0;
             shape.yVel = 0;
         }
-        if (shape.x > width) {
-            shape.x = width;
+        shape.recalcBoundingBox();
+        if (shape.boundingBox.x + shape.boundingBox.width > width) {
+            shape.x -= shape.boundingBox.x - (width - shape.boundingBox.width);
             shape.xVel = 0;
         }
-        if (shape.y > height) {
-            shape.y = height;
+        if (shape.boundingBox.y + shape.boundingBox.height > height) {
+            shape.y -= shape.boundingBox.y - (height - shape.boundingBox.height);
             shape.yVel = 0;
         }
+        shape.recalcBoundingBox();
     }
 }
 
