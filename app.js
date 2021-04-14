@@ -1,6 +1,66 @@
-const numberOfShapes = 50;
-const drawQuadTree = false;
-const drawBoundingBoxes = false;
+let numberOfShapes = 50;
+let minNumberOfSides = 3;
+let sideNumberVarience = 5;
+let maxShapeWidth = 200;
+let maxShapeHeight = 200;
+let drawQuadTree = false;
+let drawBoundingBoxes = false;
+let hideColliding = false;
+let hideNonColliding = false;
+
+const numberOfShapesElement = document.getElementById("numberOfShapes");
+const minNumberOfSidesElement = document.getElementById("minNumberOfSides");
+const sideNumberVarienceElement = document.getElementById("sideNumberVarience");
+const maxShapeWidthElement = document.getElementById("maxShapeWidth");
+const maxShapeHeightElement = document.getElementById("maxShapeHeight");
+const drawQuadTreeElement = document.getElementById("drawQuadTree");
+const drawBoundingBoxesElement = document.getElementById("drawBoundingBoxes");
+const hideCollidingElement = document.getElementById("hideColliding");
+const hideNonCollidingElement = document.getElementById("hideNonColliding");
+
+numberOfShapesElement.value = numberOfShapes;
+numberOfShapesElement.oninput(null);
+minNumberOfSidesElement.value = minNumberOfSides;
+minNumberOfSidesElement.oninput(null);
+sideNumberVarienceElement.value = sideNumberVarience;
+sideNumberVarienceElement.oninput(null);
+maxShapeWidthElement.value = maxShapeWidth;
+maxShapeWidthElement.oninput(null);
+maxShapeHeightElement.value = maxShapeHeight;
+maxShapeHeightElement.oninput(null);
+
+numberOfShapesElement.onchange = function () {
+    numberOfShapes = numberOfShapesElement.value;
+    generateShapes();
+}
+minNumberOfSidesElement.onchange = function () {
+    minNumberOfSides = minNumberOfSidesElement.value;
+    generateShapes();
+}
+sideNumberVarienceElement.onchange = function () {
+    sideNumberVarience = sideNumberVarienceElement.value;
+    generateShapes();
+}
+maxShapeWidthElement.onchange = function () {
+    maxShapeWidth = maxShapeWidthElement.value;
+    generateShapes();
+}
+maxShapeHeightElement.onchange = function () {
+    maxShapeHeight = maxShapeHeightElement.value;
+    generateShapes();
+}
+drawQuadTreeElement.onclick = function () {
+    drawQuadTree = drawQuadTreeElement.checked;
+}
+drawBoundingBoxesElement.onclick = function () {
+    drawBoundingBoxes = drawBoundingBoxesElement.checked;
+}
+hideCollidingElement.onclick = function () {
+    hideColliding = hideCollidingElement.checked;
+}
+hideNonCollidingElement.onclick = function () {
+    hideNonColliding = hideNonCollidingElement.checked;
+}
 
 class Line {
     constructor(p1, p2) {
@@ -30,6 +90,13 @@ class Shape {
     }
 
     draw(ctx, collides) {
+        if (collides && hideColliding) {
+            return;
+        }
+        if (!collides && hideNonColliding) {
+            return;
+        }
+
         ctx.beginPath();
         ctx.moveTo(this.points[0].x + this.x, this.points[0].y + this.y);
         for (let i = 1; i < this.points.length; i++) {
@@ -324,91 +391,97 @@ function pointInRectangle(p, r) {
         p.y < r.y + r.height;
 }
 
-function start() {
-    const canvas = document.getElementById("canvas");
-    const ctx = canvas.getContext("2d");
-    const shapes = [];
-    const colors = ['blue', 'purple', 'pink', 'orange', 'black', 'green'];
-    const width = 800;
-    const height = 800;
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+const width = 800;
+const height = 800;
 
+let shapes = [];
+
+function generateShapes() {
+    shapes = [];
+    const colors = ['blue', 'purple', 'pink', 'orange', 'black', 'green'];
     for (let i = 0; i < numberOfShapes; i++) {
         let points = [];
-        for (let j = 0; j < Math.floor(Math.random() * 20) + 1; j++) {
+        for (let j = 0; j < Math.round(Math.random() * sideNumberVarience) + minNumberOfSides; j++) {
             points.push(new Point(
-                Math.random() * 100,
-                Math.random() * 100,
+                Math.random() * maxShapeWidth,
+                Math.random() * maxShapeHeight,
             ));
         }
         shapes.push(
             new Shape(i, points,
-                Math.random() * 400,
-                Math.random() * 400,
+                Math.random() * 800,
+                Math.random() * 800,
                 colors[Math.floor(Math.random() * colors.length)])
         );
     }
+}
 
-    function draw() {
-        ctx.fillStyle = 'white';
-        ctx.fillRect(0, 0, width, height);
-        const quadtree = new QuadTree(0, 0, width, height);
-        for (let shape of shapes) {
-            shape.recalcBoundingBox();
-            quadtree.insert(shape);
+
+function draw() {
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, width, height);
+    const quadtree = new QuadTree(0, 0, width, height);
+    for (let shape of shapes) {
+        shape.recalcBoundingBox();
+        quadtree.insert(shape);
+    }
+
+    if (drawQuadTree) {
+        quadtree.draw(ctx, quadtree.root);
+    }
+
+    const collisionIds = new Set();
+    for (let shape of shapes) {
+        if (collisionIds.has(shape.id)) {
+            continue;
         }
-
-        if (drawQuadTree) {
-            quadtree.draw(ctx, quadtree.root);
+        let collisions = quadtree.collisions(shape);
+        for (let collision of collisions) {
+            collisionIds.add(collision.id);
         }
-
-        const collisionIds = new Set();
-        for (let shape of shapes) {
-            if (collisionIds.has(shape.id)) {
-                continue;
-            }
-            let collisions = quadtree.collisions(shape);
-            for (let collision of collisions) {
-                collisionIds.add(collision.id);
-            }
-            if (collisions.length > 0) {
-                collisionIds.add(shape.id);
-            }
-        }
-
-        for (let shape of shapes) {
-            if (collisionIds.has(shape.id)) {
-                shape.draw(ctx, true);
-            } else {
-                shape.draw(ctx);
-            }
+        if (collisions.length > 0) {
+            collisionIds.add(shape.id);
         }
     }
 
-    function move() {
-        for (let shape of shapes) {
-            shape.xVel += (Math.random() - 0.5) * 2;
-            shape.yVel += (Math.random() - 0.5) * 2;
-            shape.x += shape.xVel;
-            shape.y += shape.yVel;
-            if (shape.x < 0) {
-                shape.x = 0;
-                shape.xVel = 0;
-            }
-            if (shape.y < 0) {
-                shape.y = 0;
-                shape.yVel = 0;
-            }
-            if (shape.x > width) {
-                shape.x = width;
-                shape.xVel = 0;
-            }
-            if (shape.y > height) {
-                shape.y = height;
-                shape.yVel = 0;
-            }
+    for (let shape of shapes) {
+        if (collisionIds.has(shape.id)) {
+            shape.draw(ctx, true);
+        } else {
+            shape.draw(ctx);
         }
     }
+}
 
+function move() {
+    for (let shape of shapes) {
+        shape.xVel += (Math.random() - 0.5) * 2;
+        shape.yVel += (Math.random() - 0.5) * 2;
+        shape.x += shape.xVel;
+        shape.y += shape.yVel;
+        if (shape.x < 0) {
+            shape.x = 0;
+            shape.xVel = 0;
+        }
+        if (shape.y < 0) {
+            shape.y = 0;
+            shape.yVel = 0;
+        }
+        if (shape.x > width) {
+            shape.x = width;
+            shape.xVel = 0;
+        }
+        if (shape.y > height) {
+            shape.y = height;
+            shape.yVel = 0;
+        }
+    }
+}
+
+function start() {
+    generateShapes();
     draw();
 
     setInterval(() => {
